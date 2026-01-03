@@ -1,6 +1,6 @@
 # JoonWeb Node.js SDK
 
-Official Node.js SDK for building apps on the JoonWeb platform. This SDK provides a Shopify-compatible interface for easy integration.
+Official Node.js SDK for building apps on the JoonWeb platform. This SDK provides a user friendly interface for easy integration.
 
 ## 🚀 Features
 

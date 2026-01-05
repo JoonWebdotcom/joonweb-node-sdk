@@ -23,7 +23,7 @@ yarn add joonweb-node-sdk
 
 # 1. Initialize the SDK
 ```javascript
-const { JoonWebAPI, Context } = require('joonweb-node-sdk');
+const { JoonWebAPI, Context } = require('joonweb-sdk');
 
 // Initialize with your app credentials
 Context.init({
@@ -35,7 +35,7 @@ Context.init({
 
 # 2. OAuth Installation Flow
 ```javascript
-const { OAuth } = require('joonweb-node-sdk');
+const { OAuth } = require('joonweb-sdk');
 
 const oauth = new OAuth({
     clientId: process.env.JOONWEB_CLIENT_ID,

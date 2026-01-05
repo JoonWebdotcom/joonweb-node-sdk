@@ -14,22 +14,42 @@ Official Node.js SDK for building apps on the JoonWeb platform. This SDK provide
 ## 📦 Installation
 
 ```bash
-npm install joonweb-node-sdk
+npm install @joonweb/joonweb-sdk
 # or
-yarn add joonweb-node-sdk
+yarn add @joonweb/joonweb-sdk
 ```
 
 ## 🔧 Quick Start
 
 # 1. Initialize the SDK
 ```javascript
-const { JoonWebAPI, Context } = require('joonweb-sdk');
+const { JoonWebAPI, Context } = require('@joonweb/joonweb-sdk'); // Import Context
 
 // Initialize with your app credentials
+// Initialize JoonWeb Context BEFORE any routes
 Context.init({
     api_key: process.env.JOONWEB_CLIENT_ID,
     api_secret: process.env.JOONWEB_CLIENT_SECRET,
-    api_version: '26.0'
+    api_version: process.env.JOONWEB_API_VERSION || '26.0',
+    is_embedded: true,
+    
+    // Add storage configuration here
+    session_storage_type: 'memory', // or 'mysql', 'sqlite', 'mongodb', 'redis', 'postgresql', 'memory'
+    session_storage_options: {
+        // Options specific to the chosen storage type
+        // For Mongodb, Redis:
+        url:'' //mongodb url,
+        dbName:'your-database-name',
+        // FOR MySQL, PostgreSQL, MariaDB:
+        host:'',
+        port:'',
+        user:'',
+        password:'',
+        database:'',
+        // SQLLITE:
+        dbPath:''
+        
+    }
 });
 ```
 
@@ -52,25 +72,77 @@ res.redirect(auth.url);
 app.get('/auth/callback', async (req, res) => {
     await oauth.handleCallback(req, res);
 });
+
+// OR:
+
+// Callback route - Enhanced to save session to storage
+router.get('/callback', async (req, res) => {
+    try {
+        const sessionManager = req.sessionManager; // Get from middleware
+        
+    
+        const site = req.query.site;
+        if (!site) {
+            throw new Error('Site not found in session');
+        }
+        
+        // Use SDK to exchange code for token
+        const tokenData = await oauth.exchangeCodeForToken(
+            req.query.code,
+            site
+        );
+        
+        
+        // Store session using the pluggable storage
+        const session = await sessionManager.startSession(site, {
+            access_token: tokenData.access_token,
+            scope: tokenData.scope,
+            expires_in: tokenData.expires_in,
+            associated_user: tokenData.associated_user || null
+        });
+        
+        // Store additional info in HTTP session
+        req.session.joonweb_site = site;
+        req.session.joonweb_access_token = tokenData.access_token;
+        req.session.joonweb_user = tokenData.associated_user;
+
+         // Build embed URL
+        const embedUrl = oauth.getEmbedUrl(site, req.query.site_hash, req.query.app_slug);
+        // Redirect to embedded app
+        res.redirect(embedUrl);
+        
+        
+    } catch (error) {
+        console.error('OAuth callback error:', error);
+        
+        // Clean up on error
+        if (req.session.site && req.sessionManager) {
+            await req.sessionManager.destroySession(req.session.site);
+        }
+        
+        res.status(400).render('error', { 
+            message: 'Installation failed',
+            error: error.message 
+        });
+    }
+});
 ```
 
 # 3. Use the API
 ```javascript
-const api = new JoonWebAPI('access_token', 'yoursite.myjoonweb.com');
+const api = new JoonWebAPI(accessToken, site);
 
-// Get products
-const products = await api.product.all({ limit: 10 });
+// Get all products
+const products = await api.product.all();
 
-// Create order
-const order = await api.order.create({
-    line_items: [{
-        variant_id: 123456,
-        quantity: 1
-    }]
+// Create a new product
+const newProduct = await api.product.create({
+  title: 'My Product',
+  price: 19.99
 });
 
 // Get site info
-const site = await api.site.get();
+const siteInfo = await api.site.get();
 ```
 
 ## 🔐 Authentication
@@ -97,6 +169,7 @@ app.post('/webhooks', express.raw({type: 'application/json'}), (req, res) => {
 ```
 ## 📝 Environment Variables
 ```env
+APP_NAME="YourAPP"
 JOONWEB_CLIENT_ID=your_client_id
 JOONWEB_CLIENT_SECRET=your_client_secret
 JOONWEB_REDIRECT_URI=https://yourapp.com/auth/callback
